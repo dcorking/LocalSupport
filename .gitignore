@@ -22,5 +22,9 @@ pickle-email-*.html
 .DS_Store
 linecache19-0.5.13.gem
 /bin/
-\#*#
-\.#*
+/.emacs.desktop
+/.emacs.desktop.lock
+.elc
+auto-save-list
+tramp
+.\#*
