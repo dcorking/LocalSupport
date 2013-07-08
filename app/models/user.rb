@@ -13,4 +13,8 @@ class User < ActiveRecord::Base
   def can_edit? org
     admin? || (!org.nil? && organization == org)
   end
+
+  def can_create?
+    admin?
+  end
 end

@@ -54,6 +54,14 @@ describe User do
     expect(@nonadmin.can_edit?(nil)).to be_false
   end
 
+  it 'does not let non-admin create an organization' do
+    expect(@nonadmin.can_create?).to be_false
+  end
+
+  it 'does let an admin create an organization' do
+    expect(@admin.can_create?).to be_true
+  end
+
   it 'does not allow mass assignment of admin for security' do
     @nonadmin.update_attributes(:admin=> true)
     @nonadmin.save!
