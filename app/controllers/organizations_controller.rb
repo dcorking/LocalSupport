@@ -65,12 +65,12 @@ class OrganizationsController < ApplicationController
     # model filters for logged in users, but we check here if that user is an admin
     # TODO refactor that to model responsibility?
 
-    @organization = Organization.new(params[:organization])     
-    unless current_user.can? :create, @organization
+    unless can? :create, Organization
        flash[:notice] = "You don't have permission"
        redirect_to organizations_path and return false
      end
 
+    @organization = Organization.new(params[:organization])     
 
     respond_to do |format|
       if @organization.save
