@@ -218,32 +218,35 @@ describe OrganizationsController do
     end
 
     context "while signed in as non-admin" do
+     
+     let(:create_post) { post :create, :organization => {'these' => 'params'} } 
+      
       before(:each) do
         user = mock_model("User")
         request.env['warden'].stub :authenticate! => user
         controller.stub!(:current_user).and_return(user)
-	user.should_receive(:admin?).and_return(false)
+        user.should_receive(:admin?).and_return(false)
       end
 
       describe "with valid params" do
          it "refuses to create a new organization" do
-	   # stubbing out Organization to prevent new method from calling Gmaps APIs
+           # stubbing out Organization to prevent new method from calling Gmaps APIs
            Organization.stub(:new).with({'these' => 'params'}) { mock_organization(:save => true) }
-	   Organization.should_not_receive :new
-	   post :create, :organization => {'these' => 'params'}
+           Organization.should_not_receive :new
+           create_post
          end
          it "redirects to the organizations index" do
            Organization.stub(:new).with({'these' => 'params'}) { mock_organization(:save => true) }
-	   post :create, :organization => {'these' => 'params'}
-	   expect(response).to redirect_to organizations_path           
-	 end
-	 it "assigns a flash refusal" do
+           create_post
+           expect(response).to redirect_to organizations_path           
+         end
+         it "assigns a flash refusal" do
            Organization.stub(:new).with({'these' => 'params'}) { mock_organization(:save => true) }
-	   post :create, :organization => {'these' => 'params'}
-	   expect(flash[:notice]).to eq("You don't have permission")
-	 end
+           create_post
+           expect(flash[:notice]).to eq("You don't have permission")
+         end
       end
-# not interested in invalid params 
+      # not interested in invalid params 
     end
   end
 
