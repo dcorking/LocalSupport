@@ -2,33 +2,24 @@ class OrganizationsController < ApplicationController
   # GET /organizations/search
   # GET /organizations/search.json
   before_filter :authenticate_user!, :except => [:search, :index, :show]
+
   def search
-    # should this be a model method with a model spec around it ...?
     @query_term = params[:q]
-    @results = Organization.search_by_keyword(@query_term)
-    flash.now[:alert] = "Sorry, it seems we don't quite have what you are looking for." if @results.empty?
-    @organizations = @results.page(params[:page]).per(5)
-    @json = gmap4rails_with_popup_partial(@results,'popup')
-    respond_to do |format|
-      format.js   { render :template =>'organizations/index'}
-      format.html { render :template =>'organizations/index'}
-      format.json { render json:  @organizations }
-      format.xml  { render :xml => @organizations }
-    end
+    @category_id = params.try(:[],'category').try(:[],'id')
+    @category = Category.find_by_id(@category_id)
+    @organizations = Organization.search_by_keyword(@query_term).filter_by_category(@category_id)
+    flash.now[:alert] = SEARCH_NOT_FOUND if @organizations.empty?
+    @json = gmap4rails_with_popup_partial(@organizations,'popup')
+    @category_options = Category.html_drop_down_options
+    render :template =>'organizations/index'
   end
 
   # GET /organizations
   # GET /organizations.json
   def index
-    @results = Organization.order("updated_at DESC")
-    @organizations = @results.page(params[:page]).per(5)
-    @json = gmap4rails_with_popup_partial(@results,'popup')
-    respond_to do |format|
-      format.js
-      format.html # index.html.erb
-      format.json { render json: @organizations }
-      format.xml  { render :xml => @organizations }
-    end
+    @organizations = Organization.order("updated_at DESC")
+    @json = gmap4rails_with_popup_partial(@organizations,'popup')
+    @category_options = Category.html_drop_down_options
   end
 
   # GET /organizations/1
@@ -37,26 +28,22 @@ class OrganizationsController < ApplicationController
     @organization = Organization.find(params[:id])
     @editable = current_user.can_edit?(@organization) if current_user
     @json = gmap4rails_with_popup_partial(@organization,'popup')
-    respond_to do |format|
-      format.html # show.html.erb
-      format.json { render json: @organization }
-    end
   end
 
   # GET /organizations/new
   # GET /organizations/new.json
   def new
     @organization = Organization.new
-
-    respond_to do |format|
-      format.html # new.html.erb
-      format.json { render json: @organization }
-    end
   end
 
   # GET /organizations/1/edit
   def edit
+    #TODO Eliminate code duplication for permissions across methods
     @organization = Organization.find(params[:id])
+    unless current_user.try(:can_edit?,@organization)
+      flash[:notice] = PERMISSION_DENIED
+      redirect_to organization_path(params[:id]) and return false
+    end
   end
 
   # POST /organizations
@@ -66,20 +53,16 @@ class OrganizationsController < ApplicationController
     # TODO refactor that to model responsibility?
 
     unless can? :create, Organization
-       flash[:notice] = "You don't have permission"
+       flash[:notice] = PERMISSION_DENIED
        redirect_to organizations_path and return false
      end
 
-    @organization = Organization.new(params[:organization])     
+    @organization = Organization.new(params[:organization])
 
-    respond_to do |format|
-      if @organization.save
-        format.html { redirect_to @organization, notice: 'Organization was successfully created.' }
-        format.json { render json: @organization, status: :created, location: @organization }
-      else
-        format.html { render action: "new" }
-        format.json { render json: @organization.errors, status: :unprocessable_entity }
-      end
+    if @organization.save
+      redirect_to @organization, notice: 'Organization was successfully created.'
+    else
+      render action: "new"
     end
   end
 
@@ -87,18 +70,15 @@ class OrganizationsController < ApplicationController
   # PUT /organizations/1.json
   def update
     @organization = Organization.find(params[:id])
+    params[:organization][:admin_email_to_add] = params[:organization_admin_email_to_add] if params[:organization]
     unless current_user.try(:can_edit?,@organization)
-      flash[:notice] = "You don't have permission"
+      flash[:notice] = PERMISSION_DENIED
       redirect_to organization_path(params[:id]) and return false
     end
-    respond_to do |format|
-      if @organization.update_attributes(params[:organization])
-        format.html { redirect_to @organization, notice: 'Organization was successfully updated.' }
-        format.json { head :ok }
-      else
-        format.html { render action: "edit" }
-        format.json { render json: @organization.errors, status: :unprocessable_entity }
-      end
+    if @organization.update_attributes_with_admin(params[:organization])
+      redirect_to @organization, notice: 'Organization was successfully updated.'
+    else
+      render action: "edit"
     end
   end
 
@@ -106,16 +86,13 @@ class OrganizationsController < ApplicationController
   # DELETE /organizations/1.json
   def destroy
     unless current_user.try(:admin?)
-      flash[:notice] = "You don't have permission"
+      flash[:notice] = PERMISSION_DENIED
       redirect_to organization_path(params[:id]) and return false
     end
     @organization = Organization.find(params[:id])
     @organization.destroy
 
-    respond_to do |format|
-      format.html { redirect_to organizations_url }
-      format.json { head :ok }
-    end
+    redirect_to organizations_url
   end
 
   private

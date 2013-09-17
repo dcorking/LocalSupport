@@ -1,12 +1,19 @@
 require 'csv'
 
+class String
+  def humanized_all_first_capitals
+    self.humanize.split(' ').map{|w| w.capitalize}.join(' ')
+  end
+end
+
 class Organization < ActiveRecord::Base
   acts_as_gmappable :check_process => false
   has_many :users
-
+  has_and_belongs_to_many :categories
   # Setup accessible (or protected) attributes for your model
   # prevents mass assignment on other fields not in this list
   attr_accessible :name, :description, :address, :postcode, :email, :website, :telephone, :donation_info
+  accepts_nested_attributes_for :users
 
   #This method is overridden to save organization if address was failed to geocode
   def run_validations!
@@ -14,34 +21,46 @@ class Organization < ActiveRecord::Base
     remove_errors_with_address
     errors.empty?
   end
+  #TODO: Give this TLC and refactor the flow or refactor out responsibilities
+  def update_attributes_with_admin(params)
+    email = params[:admin_email_to_add]
+    result = false
+    if !email.blank?
+       result = ActiveRecord::Base.transaction do
+         usr = User.find_by_email(email)
+         if usr == nil
+           self.errors.add(:administrator_email, "The user email you entered,'#{email}', does not exist in the system")
+           raise ActiveRecord::Rollback
+         else
+           self.users << usr
+           self.update_attributes(params)
+         end
+       end
+    else
+      result = self.update_attributes(params)
+    end
+    return result
+  end
 
   def self.search_by_keyword(keyword)
     self.where("UPPER(description) LIKE ? OR UPPER(name) LIKE ?","%#{keyword.try(:upcase)}%","%#{keyword.try(:upcase)}%")
   end
-  
+
+  def self.filter_by_category(category_id)
+    return scoped unless category_id.present?
+    # could use this but doesn't play well with search by keyqord since table names are remapped
+    #Organization.includes(:categories).where("categories_organizations.category_id" =>  category_id)
+    category = Category.find_by_id(category_id)
+    orgs = category.organizations.select {|org| org.id} if category
+    where(:id => orgs)
+  end
+
   def gmaps4rails_address
     "#{self.address}, #{self.postcode}"
   end
 
   def gmaps4rails_infowindow
     "#{self.name}"
-  end
-
-  def self.humanize_description(unfriendly_description) 
-    unfriendly_description && unfriendly_description.humanize
-  end
-
-  def self.parse_address(address_with_trailing_postcode)  
-    address = address_with_trailing_postcode.to_s
-    postcode = ''
-    match = address_with_trailing_postcode.to_s.match(/(.*)(,\s*(\w\w\d\s* \d\w\w))/)
-    if match
-      if match.length == 4 
-        address = match[1]
-        postcode = match[3].to_s
-      end
-    end
-    {:address => address, :postcode => postcode}
   end
 
   #Edit this if CSV 'schema' changes
@@ -52,58 +71,68 @@ class Organization < ActiveRecord::Base
       description: 'Activities',
       website: 'website',
       telephone: 'Contact Telephone',
-      date_removed: 'date removed'
+      date_removed: 'date removed',
+      cc_id: 'Charity Classification'
   }
-
-  def self.create_from_array(row, validate)
+  def self.column_mappings
+    @@column_mappings
+  end
+  def self.import_categories_from_array(row)
     check_columns_in(row)
-    return nil if row[@@column_mappings[:date_removed]]
-    address = self.parse_address(row[@@column_mappings[:address]])
-
-    org = Organization.new
-    org.name = row[@@column_mappings[:name]].to_s.humanized_all_first_capitals
-    org.description = self.humanize_description(row[@@column_mappings[:description]])
-    org.address = address[:address].humanized_all_first_capitals
-    org.postcode = address[:postcode]
-    org.website = row[@@column_mappings[:website]]
-    org.telephone = row[@@column_mappings[:telephone]]
-
-    # this commented throttling code might work well for db:seed, but
-    # relies of hard validation failures, which we must avoid
-    # in the normal operation of the app
-    #begin
-      org.save! validate: validate
-    #rescue ActiveRecord::RecordInvalid => e
-      #if e.message =~ /Gmaps4rails address Address invalid/
-        #begin
-          #Gmaps4rails.geocode(org.gmaps4rails_address)
-        #rescue Gmaps4rails::GeocodeStatus => e
-          #if e.message =~ /OVER_QUERY_LIMIT/
-            ## throttle the rate of saves
-            #sleep(2000)
-            #org.save! validate: validate
-          #end
-        #end
-      #end
-    #end
-
+    org_name = row[@@column_mappings[:name]].to_s.humanized_all_first_capitals
+    org = Organization.find_by_name(org_name)
+    check_categories_for_import(row, org)
     org
   end
 
+  def self.check_categories_for_import(row, org)
+    category_ids = row[@@column_mappings[:cc_id]] if org
+    category_ids.split(',').each do |id|
+      cat = Category.find_by_charity_commission_id(id.to_i)
+      org.categories << cat
+    end if category_ids
+  end
+
+  def self.import_category_mappings(filename, limit)
+    import(filename, limit, false) do |row, validation| 
+      import_categories_from_array(row) 
+    end
+  end
+
+  def self.create_from_array(row, validate)
+    CreateOrganizationFromArray.new(row).call(validate)
+  end
+
   def self.import_addresses(filename, limit, validation = true)
+    import(filename, limit, validation) do |row, validation| 
+       create_from_array(row, validation) 
+    end
+  end
+
+  def self.import(filename, limit, validation, &block)
     csv_text = File.open(filename, 'r:ISO-8859-1')
     count = 0
     CSV.parse(csv_text, :headers => true).each do |row|
-      if count >= limit
-        break
-      end
+      break if count >= limit
       count += 1
       begin
-        self.create_from_array(row, validation)
+        yield(row, validation)
       rescue CSV::MalformedCSVError => e
         logger.error(e.message)
       end
     end
+  end
+
+  def self.import_emails(filename, limit, validation = true)
+    import(filename, limit, validation) do |row, validation|
+      add_email(row, validation)
+    end
+  end
+
+  def self.add_email(row, validation)
+    org = find_by_name(row[0])
+    org.email = row[1]
+    org.save
   end
 
   def self.check_columns_in(row)
@@ -129,11 +158,5 @@ class Organization < ActiveRecord::Base
         self.longitude = nil
       end
     end
-  end
-end
-
-class String
-  def humanized_all_first_capitals
-    self.humanize.split(' ').map{|w| w.capitalize}.join(' ')
   end
 end

@@ -1,6 +1,31 @@
 require 'webmock/cucumber'
 require 'uri-handler'
+include ApplicationHelper
 
+Then /^I should see permission denied$/ do
+  page.should have_content PERMISSION_DENIED
+end
+
+
+Then /^"(.*?)" should be a charity admin for "(.*?)" charity$/ do |email, org|
+  org = Organization.find_by_name org
+  usr = User.find_by_email(email)
+  expect(usr).not_to be_nil
+  expect(org.users).to include usr
+end
+
+Then /^I should see the cannot add non registered user "(.*?)" as charity admin message$/ do |email|
+  page.should have_content "The user email you entered,'#{email}', does not exist in the system"
+end
+And /^I add "(.*?)" as an admin for "(.*?)" charity$/ do |admin_email, charity|
+  steps %Q{ And I am on the edit charity page for "#{charity}"}
+  fill_in 'organization_admin_email_to_add', :with => admin_email
+  steps %Q{
+  And I press "Update Organisation"}
+end
+Then /^I should see the no charity admins message$/ do
+  expect(page).to have_content "This organisation has no admins yet"
+end
 Given /^I delete "(.*?)" charity$/ do |name|
   org = Organization.find_by_name name
   page.driver.submit :delete, "/organizations/#{org.id}", {}
@@ -9,6 +34,12 @@ end
 Then /^I should not see an edit button for "(.*?)" charity$/ do |name|
   org = Organization.find_by_name name
   expect(page).not_to have_link :href => edit_organization_path(org.id)
+end
+
+Then /^I should see "(.*?)" in the charity admin email$/ do |email|
+  expect(page).to have_content "Organisation administrator emails: "
+  expect(page).to have_selector "ol"
+  expect(page).to have_selector "li", :text => email
 end
 
 Then /^show me the page$/ do
@@ -25,7 +56,7 @@ end
 
 When /^I search for "(.*?)"$/ do |text|
   fill_in 'q', with: text
-  click_button 'Search'
+  click_button 'Submit'
 end
 
 Given /^I fill in the new charity page validly$/ do
@@ -51,7 +82,7 @@ Given /^I update "(.*?)" charity address to be "(.*?)"( when Google is indispose
     Given I am on the charity page for "#{name}"
     And I follow "Edit"
     And I edit the charity address to be "#{address}" #{indisposed ? 'when Google is indisposed':''}
-    And I press "Update Organization"
+    And I press "Update Organisation"
   }
 end
 
@@ -60,7 +91,7 @@ Given /^I have created a new organization$/ do
     Given I am on the home page
     And I follow "New Organization"
     And I fill in the new charity page validly
-    And I press "Create Organization"
+    And I press "Create Organisation"
    }
 end
 
@@ -68,7 +99,7 @@ Given /^I furtively update "(.*?)" charity address to be "(.*?)"$/ do |name, add
   steps %Q{
     Given I am furtively on the edit charity page for "#{name}"
     And I edit the charity address to be "#{address}"
-    And I press "Update Organization"
+    And I press "Update Organisation"
   }
 end
 
@@ -90,7 +121,8 @@ end
 
 Then /^I should see the donation_info URL for "(.*?)"$/ do |name1|
   org1 = Organization.find_by_name(name1)
-  page.should have_link "Donate to #{org1.name} now!", :href => org1.donation_info
+  content =  "Donate to #{org1.name} now!"
+  page.should have_xpath %Q<//a[@href = "#{org1.donation_info}" and @target = "_blank" and contains(.,'#{content}')]>
 end
 
 Then /^I should not see the donation_info URL for "(.*?)"$/ do |name1|
@@ -109,7 +141,7 @@ end
 
 Then /^I should( not)? see the no results message$/ do |negate| 
   expectation_method = negate ? :not_to : :to
-  expect(page).send(expectation_method, have_content("Sorry, it seems we don't quite have what you are looking for."))
+  expect(page).send(expectation_method, have_content(SEARCH_NOT_FOUND))
 end
 
 Then /^I should not see any address or telephone information for "([^"]*?)" and "([^"]*?)"$/ do |name1, name2|
@@ -147,6 +179,10 @@ Then /^I should not see any edit link for "([^"]*?)"$/ do |name1|
   page.should_not have_link "Edit"
 end
 
+Then /^I should see the external website link for "(.*?)" charity$/ do |org_name|
+  org = Organization.find_by_name org_name
+  page.should have_xpath %Q<//a[@target = "_blank" and @href = "#{org.website}" and contains(.,'#{org.website}')]>
+end
 Then /^I should see a link with text "([^"]*?)"$/ do |link|
   page.should have_link link
 end
@@ -206,7 +242,7 @@ end
 def check_contact_details(name)
   org = Organization.find_by_name(name)
   page.should have_link name, :href => organization_path(org.id)
-  page.should have_content org.description.truncate(128,:omission=>' ...')
+  page.should have_content smart_truncate(org.description)
 end
 
 Then /^I should be on the sign up page$/ do
@@ -236,4 +272,16 @@ end
 Then /^I debug$/ do
   breakpoint
   0
+end
+
+And(/^a file exists:$/) do |table|
+  CSV.open("db/email_test.csv", "wb") do |csv|
+    table.hashes.each do |org|
+      csv << [org['name'], org['email']]
+    end
+  end
+end
+
+Then(/^"(.*?)" should have email "(.*?)"$/) do |org, email|
+  Organization.find_by_name(org).email.should eq email
 end

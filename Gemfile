@@ -1,6 +1,7 @@
 source 'http://rubygems.org'
 
-gem 'rails', '3.1.10'
+ruby '1.9.3'
+gem 'rails', '3.2.14'
 gem 'devise'
 
 
@@ -9,6 +10,7 @@ gem 'devise'
 
 # for Heroku deployment - as described in Ap. A of ELLS book
 group :development, :test do
+  gem 'metric_fu'
   gem 'sqlite3'  
   gem 'database_cleaner'
   gem 'launchy'
