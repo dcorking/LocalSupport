@@ -194,14 +194,18 @@ describe OrganizationsController do
 
   describe "GET edit" do
     context "while signed in as user who can edit" do
-      before(:each) do
+      it "will send the admin? message to the user" do
         user = double("User")
-        user.stub(:can_edit?){true}
         request.env['warden'].stub :authenticate! => user
         controller.stub(:current_user).and_return(user)
+        Organization.stub(:find).with("37") { double_organization }
+        user.should_receive(:admin?).and_return(true)
+        get :edit, :id => "37"
       end
-
       it "assigns the requested organization as @organization" do
+        user = double("User")
+        request.env['warden'].stub :authenticate! => user
+        controller.stub(:current_user).and_return(user)
         Organization.stub(:find).with("37") { double_organization }
         get :edit, :id => "37"
         assigns(:organization).should be(double_organization)

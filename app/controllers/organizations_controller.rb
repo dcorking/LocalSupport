@@ -40,7 +40,7 @@ class OrganizationsController < ApplicationController
   def edit
     #TODO Eliminate code duplication for permissions across methods
     @organization = Organization.find(params[:id])
-    unless current_user.try(:can_edit?,@organization)
+    unless can? :edit, @organization
       flash[:notice] = PERMISSION_DENIED
       redirect_to organization_path(params[:id]) and return false
     end
