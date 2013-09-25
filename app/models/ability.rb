@@ -8,7 +8,7 @@ class Ability
 
     can :manage, :all
     cannot :create, Organization unless can_admin
-    cannot :edit, Organization unless can_admin  # calls admin? a second time
+    cannot :edit, Organization unless can_admin
     # cannot :edit, @organization unless user.organization == @organization
   end
 end
