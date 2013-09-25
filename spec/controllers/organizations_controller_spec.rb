@@ -243,7 +243,7 @@ describe OrganizationsController do
         user = double("User")
         request.env['warden'].stub :authenticate! => user
         controller.stub(:current_user).and_return(user)
-	user.should_receive(:admin?).and_return(true)
+	user.stub(:admin?).and_return(true)
       end
 
       describe "with valid params" do
