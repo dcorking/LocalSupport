@@ -194,7 +194,8 @@ describe OrganizationsController do
 
   describe "GET edit" do
     context "while signed in as user who can edit" do
-      it "will send the admin? message to the user" do
+      it "will send the admin? message just once to the user" do
+        # TODO factor this out into an integration spec for CanCan
         user = double("User")
         request.env['warden'].stub :authenticate! => user
         controller.stub(:current_user).and_return(user)
@@ -204,6 +205,7 @@ describe OrganizationsController do
       end
       it "assigns the requested organization as @organization" do
         user = double("User")
+        user.stub(:admin?).and_return(true)
         request.env['warden'].stub :authenticate! => user
         controller.stub(:current_user).and_return(user)
         Organization.stub(:find).with("37") { double_organization }
@@ -215,6 +217,7 @@ describe OrganizationsController do
       before(:each) do
         user = double("User")
         user.stub(:can_edit?){false}
+        user.stub(:admin?).and_return(false)
         request.env['warden'].stub :authenticate! => user
         controller.stub(:current_user).and_return(user)
       end
