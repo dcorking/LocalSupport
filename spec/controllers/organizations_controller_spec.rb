@@ -192,17 +192,28 @@ describe OrganizationsController do
     end
   end
 
+  describe "controller request permissions" do
+    context "while signed in as user who can edit" do
+      requests = [ 'get :edit, :id => "37"' ]
+      # TODODMC This first context is the one I like the least
+      # and I am considering deleting it before posting a pull
+      # request
+      requests.each do |req|
+        it "each context should send the admin? message just once to the user" do
+          user = double("User")
+          request.env['warden'].stub :authenticate! => user
+          controller.stub(:current_user).and_return(user)
+          Organization.stub(:find).with("37") { double_organization }
+          user.should_receive(:admin?).and_return(true)
+          eval req
+        end
+      end
+    end
+  end
+
+
   describe "GET edit" do
     context "while signed in as user who can edit" do
-      it "will send the admin? message just once to the user" do
-        # TODO factor this out into an integration spec for CanCan
-        user = double("User")
-        request.env['warden'].stub :authenticate! => user
-        controller.stub(:current_user).and_return(user)
-        Organization.stub(:find).with("37") { double_organization }
-        user.should_receive(:admin?).and_return(true)
-        get :edit, :id => "37"
-      end
       it "assigns the requested organization as @organization" do
         user = double("User")
         user.stub(:admin?).and_return(true)
