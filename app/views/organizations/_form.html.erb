@@ -9,7 +9,7 @@
     </div>
   <% end %>
 
-  <div class="field" data-toggle="tooltip" title="@tooltips['Name']" >
+  <div class="field" data-toggle="tooltip" title="<%= @tooltips['Name'] %>" >
     <%= f.label :name %>
     <%= f.text_field :name, :class => "org_form" %>
   </div>
