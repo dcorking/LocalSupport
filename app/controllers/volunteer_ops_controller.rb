@@ -1,4 +1,6 @@
 class VolunteerOpsController < ApplicationController
+  before_filter :authorize, :except => [:index, :show]
+
   # GET /volunteer_ops
   # GET /volunteer_ops.json
   def index
@@ -41,6 +43,7 @@ class VolunteerOpsController < ApplicationController
   # POST /volunteer_ops.json
   def create
     @volunteer_op = VolunteerOp.new(params[:volunteer_op])
+    #TODO add association with current_user's organization
 
     respond_to do |format|
       if @volunteer_op.save
@@ -79,5 +82,19 @@ class VolunteerOpsController < ApplicationController
       format.html { redirect_to volunteer_ops_url }
       format.json { head :no_content }
     end
+  end
+
+  private
+
+  def authorize
+    unless org_owner?
+      flash[:error] = 'You must be signed in as an organization owner to perform this action!'
+      redirect_to '/'
+      false
+    end
+  end
+
+  def org_owner?
+    current_user.organization.present? if current_user.present?
   end
 end
