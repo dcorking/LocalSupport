@@ -33,4 +33,8 @@ describe ApplicationHelper do
       cookie_policy_accepted?.should be_false
     end
   end
+
+  describe '#parent_layout' do
+    it 'needs a spec'
+  end
 end
