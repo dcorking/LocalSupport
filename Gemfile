@@ -6,6 +6,9 @@ gem 'pg'
 gem 'devise', '3.0.3'
 gem 'devise_invitable', '~> 1.2.1'
 gem 'heroku-api'
+gem 'redis'
+gem 'rollout'
+gem 'rollout_ui'
 
 # Bundle edge Rails instead:
 # gem 'rails',     :git => 'git://github.com/rails/rails.git'
