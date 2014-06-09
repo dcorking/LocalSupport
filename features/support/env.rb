@@ -13,6 +13,7 @@ require 'ruby-debug'
 require 'selenium/webdriver'
 require 'factory_girl_rails'
 require 'aruba/cucumber'
+require 'webmock'
 Dir['../../spec/factories/*.rb'].each {|file| require_relative file }
 
 # Capybara defaults to XPath selectors rather than Webrat's default of CSS3. In
