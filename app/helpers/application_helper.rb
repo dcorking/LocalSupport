@@ -38,10 +38,4 @@ module ApplicationHelper
   def active_if(controller)
     'active' if params[:controller] == controller
   end
-
-  def feature_active? (flag)
-    Feature.active?(flag.to_sym)
-  end
 end
-
-
