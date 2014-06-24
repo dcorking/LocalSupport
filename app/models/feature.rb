@@ -42,4 +42,17 @@ class Feature < ActiveRecord::Base
     flag = find_by_name(feature)
     flag.nil? ? false : flag.active?
   end
+
+  # Create the feature flags named in
+  # config/feature_flag_names
+  # Records are separated by newlines
+  # Each record is a name. Please use snake_case.
+  # Can SQL be injected via that file?
+  def configure_all
+  end
+
+  # Enable all flags that are found in the database
+  def self.activate_all
+    # self.all.each {|f| Feature.activate(f)}
+  end
 end
