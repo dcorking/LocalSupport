@@ -64,13 +64,14 @@ describe Feature do
   end
   describe '::configure_all' do
     it 'adds feature flag names from a file' do
-      temp_file = File.new("/tmp/cucumber-localsupport-flags", "w")
+      filename = "/tmp/cucumber-localsupport-flags"
+      temp_file = File.new(filename, "w")
       temp_file.puts "foo_list"
       temp_file.puts "bar_create"
       temp_file.close
-      Feature.configure_all
+      Feature.configure_all filename
       FileUtils.rm "/tmp/cucumber-localsupport-flags"
-      expect(Feature.count).to eq 3
+      expect(Feature.count).to eq 2
     end
   end
 end

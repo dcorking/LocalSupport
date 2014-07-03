@@ -54,7 +54,9 @@ class Feature < ActiveRecord::Base
   # Records are separated by newlines
   # Each record is a name. Please use snake_case.
   # Can SQL be injected via that file?
-  def self.configure_all
+  def self.configure_all filename
+    flag_file = File.new(filename, "r")
+    puts "A lot more to do here"
   end
 
   # Enable all flags that are found in the database
