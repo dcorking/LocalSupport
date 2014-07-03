@@ -29,6 +29,12 @@
 class Feature < ActiveRecord::Base
   attr_accessible :name, :active
   validates :name, presence: true, uniqueness:true, allow_blank: false
+  # Why does the following validation break the code?
+  # Feature::activate sets ::active? from false to true
+     # Failure/Error: Feature.activate(:foo)
+     # NoMethodError:
+     #   undefined method `update_attribute' for nil:NilClass
+  #  validates :active, presence: true, allow_blank: false
 
   def self.deactivate(feature)
     find_by_name(feature).update_attribute(:active, false)
@@ -53,6 +59,6 @@ class Feature < ActiveRecord::Base
 
   # Enable all flags that are found in the database
   def self.activate_all
-    # self.all.each {|f| Feature.activate(f)}
+    Feature.where(active: false).each {|f| f.active = true; f.save}
   end
 end

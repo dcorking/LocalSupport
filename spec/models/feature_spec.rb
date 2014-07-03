@@ -2,10 +2,13 @@ require 'spec_helper'
 
 # Helper method tests if all features are on
 def all_features_active?
-  Feature.all.inject {|memo, f| memo && Feature.active?(f.name)}
+  Feature.where(active: false) == []
 end
 
 describe Feature do
+  after :each do
+    Feature.delete_all
+  end
   describe '::activate' do
     it 'sets ::active? from true to true' do
       Feature.create(name: :foo, active: true)
@@ -51,12 +54,13 @@ describe Feature do
     end
   end
   describe '::activate_all' do
-    it 'turns on all flags in the database'
-    test_flags = {:foo => false, :bar => true, :splat => false}
-    test_flags.each {|flag, state| Feature.create(name: flag, active: state)}
-    expect(all_features_active?).to be_false # null case
-    Feature.activate_all
-    expect(all_features_active?).to be_true
+    it 'turns on all flags in the database' do
+      test_flags = {:foo => false, :bar => true, :splat => false}
+      test_flags.each {|flag, state| Feature.create(name: flag, active: state)}
+      expect(all_features_active?).to be false # null case
+      Feature.activate_all
+      expect(all_features_active?).to be true
+    end
   end
   describe '::configure_all' do
     it 'adds feature flag names from a file'
